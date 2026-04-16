@@ -28,7 +28,6 @@
 ║  [CHALLENGE]   — weekly challenge system                     ║
 ║  [MODERATION]  — spam detection                              ║
 ║  [REACTIONS]   — raw reaction router                         ║
-║  [HELP]        — /help  paginated command reference          ║
 ║  [BOT]         — bot class + entry point                     ║
 ╚══════════════════════════════════════════════════════════════╝
 """
@@ -1568,6 +1567,7 @@ class Clutch(commands.Cog):
                 opt_ids = {r[0] for r in await cur.fetchall()}
         eligible = [m for m in guild.members
                     if m.id in opt_ids and m.id != lone.id and not m.bot
+                    and m.status != discord.Status.offline
                     and (not m.voice or not m.voice.channel)]
         if not eligible:
             return
@@ -1679,7 +1679,7 @@ class Story(commands.Cog):
                 await interaction.response.send_message(
                     "You wrote the last line. Let someone else add one first.", ephemeral=True); return
 
-            # Start a new story if none exists
+            # Start a new story if none exists or if it's been > 7 days
             async with db.execute(
                 "SELECT COUNT(*), MAX(created_at) FROM story WHERE guild_id=?", (interaction.guild_id,)) as cur:
                 count, last_at = await cur.fetchone()
@@ -1839,6 +1839,7 @@ class Weather(commands.Cog):
     @daily_forecast.before_loop
     async def before_forecast(self):
         await self.bot.wait_until_ready()
+        # Wait until next 9am UTC
         now    = datetime.utcnow()
         target = now.replace(hour=9, minute=0, second=0, microsecond=0)
         if now >= target:
@@ -1849,7 +1850,7 @@ class Weather(commands.Cog):
     async def forecast(self, interaction: discord.Interaction):
         title, desc = random.choice(WEATHER_FORECASTS)
         embed = discord.Embed(
-            title="🌤️ Today's Forecast",
+            title=f"🌤️ Today's Forecast",
             description=f"**{title}**\n{desc}",
             color=discord.Color.from_str("#FF4500"))
         embed.set_footer(text="Bonfire Bot · forecast may vary")
@@ -1895,6 +1896,7 @@ class Challenge(commands.Cog):
     @weekly_post.before_loop
     async def before_weekly(self):
         await self.bot.wait_until_ready()
+        # Wait until next Monday 10am UTC
         now  = datetime.utcnow()
         days_until_monday = (7 - now.weekday()) % 7
         if days_until_monday == 0 and now.hour >= 10:
@@ -2128,7 +2130,7 @@ class Reactions(commands.Cog):
             if roles_cog:
                 await roles_cog.log_late_vc(member.guild.id, member.id)
 
-        # Gamer role
+        # Gamer role — tracked by game VC time (simplified: joining game VC counts)
         if after.channel and "game" in (after.channel.name or "").lower():
             guild  = member.guild
             gamer_role = discord.utils.get(guild.roles, name="🎮 Gamer")
@@ -2156,178 +2158,6 @@ class Reactions(commands.Cog):
 
 
 # ─────────────────────────────────────────────────────────
-# [HELP]  — paginated interactive command reference
-# ─────────────────────────────────────────────────────────
-
-# Command catalog organized by category
-HELP_PAGES = [
-    {
-        "title": "🔥 Bonfire Bot — Command Reference",
-        "description": "Built for real friend groups. Use the buttons to browse categories.",
-        "color": 0xFF4500,
-        "fields": [
-            ("📖 Navigation", "Use ◀ ▶ to flip through pages, or the category buttons below.", False),
-            ("⭐ Reactions", "React **⭐** to highlight · **💬** to save quotes · **📖** to log lore", False),
-            ("🔔 Clutch Mode", "Someone alone in VC? Opt-in with `/clutch in` and get pinged.", False),
-        ],
-        "footer": "Page 1/7 · Bonfire Bot",
-    },
-    {
-        "title": "👤 Onboarding & Identity",
-        "description": "Get your squad set up and introduce yourselves.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/setup`", "🔧 Admin only — scaffolds the whole server (channels, roles, categories)", False),
-            ("`/intro`", "📝 Drop your homiez card with your name, age, location, games & bio", False),
-            ("`/card [member]`", "🃏 View your own or someone else's homiez card", False),
-            ("`/members`", "👥 See everyone who's dropped an intro — the full squad list", False),
-            ("`/vouch <member> [note]`", "✅ Core/OG only — vouch for a new member to confirm they're solid", False),
-            ("`/vouches <member>`", "📋 See all vouches a member has received", False),
-        ],
-        "footer": "Page 2/7 · Bonfire Bot",
-    },
-    {
-        "title": "🎮 Fun & Games",
-        "description": "Keep the energy going.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/start <activity> [ping] [custom]`", "🔔 Kick off a game night, movie night, or chill — kills the 'who's gonna initiate' paralysis", False),
-            ("`/lfg <game> <size>`", "🎯 Looking for group — fills a lobby, expires in 30 min", False),
-            ("`/roast <member>`", "🔥 Cook someone (30s cooldown, opt-in fun only)", False),
-            ("`/tod <truth|dare>`", "😈 Truth or Dare — server edition with real prompts", False),
-            ("`/hottake <take>`", "🌶️ Post a hot take, squad votes ✅/❌", False),
-            ("`/decide <opt1> <opt2> ...`", "🎲 Pick randomly from 2–10 options (10s cooldown)", False),
-        ],
-        "footer": "Page 3/7 · Bonfire Bot",
-    },
-    {
-        "title": "📖 Lore, Quotes & Highlights",
-        "description": "Archive the legendary moments.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/lore add <text> [member]`", "📖 Log a lore entry — inside jokes, bits, legendary moments", False),
-            ("`/lore random [member]`", "🎲 Pull a random lore entry (filter by member optionally)", False),
-            ("`/lore list`", "📋 See the 8 most recent lore entries", False),
-            ("`/quote [member]`", "💬 Pull a random saved quote (or filter by member)", False),
-            ("`/quotes`", "📋 List the 8 most recent saved quotes", False),
-            ("`/highlights`", "⭐ See the 5 most recent bonfire highlights", False),
-        ],
-        "footer": "Page 4/7 · Bonfire Bot",
-    },
-    {
-        "title": "📅 Reminders & Planning",
-        "description": "Actually show up to stuff.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/remind <time> <message>`", "⏰ Set a personal reminder — formats: `30m` `2h` `1h30m`", False),
-            ("`/plan <time> <activity>`", "📅 Schedule a group activity with a shared reminder", False),
-            ("`/event <title> <when> [desc] [location]`", "🎉 Plan a full event with ✅/❌ RSVP — pings 5 min before", False),
-            ("`/challenge`", "🎯 See the current weekly challenge", False),
-            ("`/np <song> [mood]`", "🎵 Share what you're listening to in #music-now", False),
-        ],
-        "footer": "Page 5/7 · Bonfire Bot",
-    },
-    {
-        "title": "📊 Vibes, Stats & Streaks",
-        "description": "Track the energy.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/vibe`", "🔥 Get a random bonfire vibe message", False),
-            ("`/vibecheck <1–5>`", "📊 Anonymous daily vibe rating — see server average", False),
-            ("`/vibereport`", "📈 See this week's vibe trends (7-day breakdown)", False),
-            ("`/streak`", "🔥 Check the server's daily activity streak", False),
-            ("`/wrapped`", "🎁 Monthly recap — top talkers, lore, highlights, beef king & more", False),
-            ("`/forecast`", "🌤️ Get today's server vibe forecast", False),
-        ],
-        "footer": "Page 6/7 · Bonfire Bot",
-    },
-    {
-        "title": "🔧 Story, Voice & Moderation",
-        "description": "The rest of the toolkit.",
-        "color": 0xFF4500,
-        "fields": [
-            ("`/story <line>`", "🏕️ Add one line to the collaborative campfire story", False),
-            ("`/fullstory`", "📖 Read the entire campfire story from the beginning", False),
-            ("`/beef start|resolve|leaderboard [member] [reason]`", "🥩 Start beef, squash it, or check the leaderboard", False),
-            ("`/clutch in|out|status`", "🔔 Opt in/out of solo-VC pings (Clutch Mode)", False),
-            ("`/lockvc` / `/unlockvc`", "🔒 Core/OG — lock or unlock all voice channels", False),
-            ("`/limitvc <limit> [channel]`", "🎚️ Core/OG — set member cap on a voice channel (0 = unlimited)", False),
-            ("`/say <message>`", "📢 Make the bot say something (manage messages required)", False),
-        ],
-        "footer": "Page 7/7 · Bonfire Bot",
-    },
-]
-
-
-class HelpView(discord.ui.View):
-    def __init__(self, author_id: int):
-        super().__init__(timeout=120)
-        self.page      = 0
-        self.author_id = author_id
-
-    def _build_embed(self) -> discord.Embed:
-        p = HELP_PAGES[self.page]
-        embed = discord.Embed(
-            title=p["title"],
-            description=p["description"],
-            color=p["color"])
-        for name, value, inline in p["fields"]:
-            embed.add_field(name=name, value=value, inline=inline)
-        embed.set_footer(text=p["footer"])
-        return embed
-
-    async def _update(self, interaction: discord.Interaction):
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("Use your own `/help` to navigate.", ephemeral=True)
-            return
-        self._refresh_buttons()
-        await interaction.response.edit_message(embed=self._build_embed(), view=self)
-
-    def _refresh_buttons(self):
-        self.prev_btn.disabled = self.page == 0
-        self.next_btn.disabled = self.page == len(HELP_PAGES) - 1
-
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, custom_id="help_prev")
-    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.page > 0:
-            self.page -= 1
-        await self._update(interaction)
-
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, custom_id="help_next")
-    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.page < len(HELP_PAGES) - 1:
-            self.page += 1
-        await self._update(interaction)
-
-    @discord.ui.button(label="🏠 Overview", style=discord.ButtonStyle.primary, custom_id="help_home")
-    async def home_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page = 0
-        await self._update(interaction)
-
-    @discord.ui.button(label="🎮 Fun", style=discord.ButtonStyle.success, custom_id="help_fun")
-    async def fun_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page = 2  # Fun & Games page
-        await self._update(interaction)
-
-    @discord.ui.button(label="📊 Stats", style=discord.ButtonStyle.success, custom_id="help_stats")
-    async def stats_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page = 5  # Vibes & Stats page
-        await self._update(interaction)
-
-
-class Help(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @app_commands.command(name="help", description="📖 Browse all Bonfire Bot commands by category")
-    async def help_cmd(self, interaction: discord.Interaction):
-        view = HelpView(author_id=interaction.user.id)
-        view._refresh_buttons()
-        embed = view._build_embed()
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-
-# ─────────────────────────────────────────────────────────
 # [BOT]
 # ─────────────────────────────────────────────────────────
 
@@ -2336,19 +2166,18 @@ ALL_COGS = [
     Reminders, Highlights, Lore, Quotes, Beef,
     VibeCheck, Streak, Wrapped, Clutch, AutoRoles,
     Story, Vouch, Weather, Challenge,
-    Moderation, Events, Reactions, Help,
+    Moderation, Events, Reactions,
 ]
 
 
 class BonfireBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.message_content = True  # Privileged — enable in Dev Portal under "Message Content Intent"
-        intents.members          = True  # Privileged — enable in Dev Portal under "Server Members Intent"
-        # NOTE: intents.presences is NOT enabled here.
-        # If you need online-status checks (e.g. Clutch Mode skips offline users),
-        # enable "Presence Intent" in the Dev Portal and uncomment the line below:
-        # intents.presences = True
+        intents.message_content = True
+        intents.members          = True
+        intents.presences        = True
+        intents.reactions        = True
+        intents.voice_states     = True
         super().__init__(command_prefix="!", intents=intents, help_command=None)
 
     async def setup_hook(self):
