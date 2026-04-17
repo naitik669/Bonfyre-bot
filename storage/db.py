@@ -126,6 +126,12 @@ async def init_db():
                 decided_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS icebreakers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question TEXT NOT NULL
+            )
+            """)
         await db.commit()
 
 
