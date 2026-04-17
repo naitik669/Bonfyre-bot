@@ -14,6 +14,18 @@ async def init_db():
         # ICEBREAKERS
         # =========================
         await db.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_vote (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            gaming     INTEGER DEFAULT 0,
+            movie      INTEGER DEFAULT 0,
+            meetup     INTEGER DEFAULT 0,
+            nothing    INTEGER DEFAULT 0,
+            voters     TEXT DEFAULT '[]',
+            posted_at  TIMESTAMP
+        )
+        """)
+        await db.execute("""
         CREATE TABLE IF NOT EXISTS icebreakers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             question TEXT NOT NULL
