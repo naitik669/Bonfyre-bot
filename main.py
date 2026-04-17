@@ -876,6 +876,222 @@ class Setup(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
         await log_timeline(guild.id, "📅", f"Server founded by {interaction.user.display_name}", [interaction.user.id])
+        pass
+
+  # ------------------------------------------------------------------
+    # NEW COMMAND: /modify-server
+    # ------------------------------------------------------------------
+    @app_commands.command(name="modify-server", description="🔄 Rename existing channels to Bonfire format and create missing ones")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def modify_server(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+
+        embed = discord.Embed(
+            title="🔄 Modifying Server Structure",
+            description="Renaming channels and creating missing ones…",
+            color=PRIMARY
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+        # Expected categories and their channels (same as /setup)
+        categories_config = {
+            "🔥 The Bonfire": {
+                "text": [
+                    ("🔥・general", "general"),
+                    ("💬・random", "random"),
+                    ("🫀・feels-board", "feels-board"),
+                    ("🪪・homiez-cards", "homiez-cards"),
+                    ("🎤・hot-seat", "hot-seat"),
+                    ("📢・announcements", "announcements"),
+                ],
+                "voice": []
+            },
+            "🎮 Game Camp": {
+                "text": [
+                    ("🎮・lfg", "lfg"),
+                    ("🎬・clips", "clips"),
+                    ("⚙️・loadouts", "loadouts"),
+                    ("🌶️・hot-takes", "hot-takes"),
+                ],
+                "voice": [
+                    ("🎮 Game VC", "Game VC"),
+                    ("🎮 Game VC 2", "Game VC 2"),
+                ]
+            },
+            "🎬 Chill Zone": {
+                "text": [
+                    ("🎬・movie-picks", "movie-picks"),
+                    ("🎵・music-now", "music-now"),
+                    ("😂・memes", "memes"),
+                    ("📸・memories", "memories"),
+                ],
+                "voice": [
+                    ("😌 Chill VC", "Chill VC"),
+                    ("🎬 Watch Party", "Watch Party"),
+                ]
+            },
+            "📖 The Lore Cave": {
+                "text": [
+                    ("⭐・highlights", "highlights"),
+                    ("💬・quotes-wall", "quotes-wall", "quotes-log"),
+                    ("🥩・beef-log", "beef-log"),
+                    ("📖・lore-archive", "lore-archive"),
+                    ("🏕️・campfire-story", "campfire-story"),
+                    ("💌・confessions", "confessions"),
+                    ("🗺️・meetups", "meetups"),
+                    ("🏆・achievements", "achievements"),
+                ],
+                "voice": []
+            },
+            "🌙 Inner Circle": {
+                "text": [
+                    ("🔥・core-chat", "core-chat"),
+                    ("📋・plans", "plans"),
+                ],
+                "voice": [
+                    ("👑 Core VC", "Core VC"),
+                ]
+            },
+            "📡 System": {
+                "text": [
+                    ("📊・status", "status"),
+                    ("🏆・wrapped-hall", "wrapped-hall"),
+                    ("🤖・bot-logs", "bot-logs"),
+                ],
+                "voice": []
+            }
+        }
+
+        # Core role for permissions
+        core_role = discord.utils.get(guild.roles, name="🔥 Core")
+        if not core_role:
+            core_role = await guild.create_role(name="🔥 Core", color=discord.Color.from_str("#FF4500"), reason="Bonfire Modify")
+
+        default_ow = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+            core_role:          discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+        readonly_ow = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+            core_role:          discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+        core_only_ow = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            core_role:          discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+        voice_ow = {
+            guild.default_role: discord.PermissionOverwrite(connect=True, speak=True, view_channel=True),
+            core_role:          discord.PermissionOverwrite(connect=True, speak=True, view_channel=True, move_members=True),
+        }
+
+        overwrite_map = {
+            "📢・announcements": readonly_ow,
+            "🔥・core-chat": core_only_ow,
+            "📋・plans": core_only_ow,
+            "👑 Core VC": {guild.default_role: discord.PermissionOverwrite(connect=False), core_role: discord.PermissionOverwrite(connect=True, speak=True, view_channel=True)},
+            "📊・status": readonly_ow,
+            "🏆・wrapped-hall": readonly_ow,
+            "🤖・bot-logs": core_only_ow,
+        }
+
+        changes = []
+
+        for cat_name, config in categories_config.items():
+            # Find or create category
+            category = discord.utils.get(guild.categories, name=cat_name)
+            if not category:
+                # Try to find by plain name (without emoji)
+                plain_name = cat_name.split(" ", 1)[-1] if " " in cat_name else cat_name
+                for c in guild.categories:
+                    if c.name == plain_name or plain_name in c.name:
+                        category = c
+                        break
+            if category:
+                if category.name != cat_name:
+                    try:
+                        await category.edit(name=cat_name)
+                        changes.append(f"✏️ Renamed category → **{cat_name}**")
+                    except:
+                        pass
+            else:
+                category = await guild.create_category(cat_name)
+                changes.append(f"📁 Created category **{cat_name}**")
+
+            # Handle text channels
+            for expected_full, *aliases in config["text"]:
+                expected_full = expected_full  # e.g., "🔥・general"
+                plain_alias = aliases[0] if aliases else expected_full.split("・")[-1]
+                # Try to find existing channel
+                channel = discord.utils.get(category.text_channels, name=expected_full)
+                if not channel:
+                    for alias in aliases:
+                        channel = discord.utils.get(category.text_channels, name=alias)
+                        if channel:
+                            break
+                    if not channel:
+                        # Try to find anywhere in guild with that name
+                        channel = discord.utils.get(guild.text_channels, name=plain_alias)
+                        if channel and channel.category != category:
+                            await channel.edit(category=category)
+                if channel:
+                    if channel.name != expected_full:
+                        try:
+                            await channel.edit(name=expected_full)
+                            changes.append(f"✏️ Renamed #{channel.name} → **#{expected_full}**")
+                        except:
+                            pass
+                    # Update overwrites
+                    ow = overwrite_map.get(expected_full, default_ow)
+                    try:
+                        await channel.edit(overwrites=ow)
+                    except:
+                        pass
+                else:
+                    channel = await category.create_text_channel(expected_full, overwrites=overwrite_map.get(expected_full, default_ow))
+                    changes.append(f"➕ Created **#{expected_full}**")
+
+            # Handle voice channels
+            for expected_full, *aliases in config["voice"]:
+                plain_alias = aliases[0] if aliases else expected_full
+                channel = discord.utils.get(category.voice_channels, name=expected_full)
+                if not channel:
+                    for alias in aliases:
+                        channel = discord.utils.get(category.voice_channels, name=alias)
+                        if channel:
+                            break
+                    if not channel:
+                        channel = discord.utils.get(guild.voice_channels, name=plain_alias)
+                        if channel and channel.category != category:
+                            await channel.edit(category=category)
+                if channel:
+                    if channel.name != expected_full:
+                        try:
+                            await channel.edit(name=expected_full)
+                            changes.append(f"✏️ Renamed 🔊 {channel.name} → **{expected_full}**")
+                        except:
+                            pass
+                    ow = overwrite_map.get(expected_full, voice_ow)
+                    try:
+                        await channel.edit(overwrites=ow)
+                    except:
+                        pass
+                else:
+                    channel = await category.create_voice_channel(expected_full, overwrites=overwrite_map.get(expected_full, voice_ow))
+                    changes.append(f"➕ Created 🔊 **{expected_full}**")
+
+        # Summary embed
+        result_embed = discord.Embed(
+            title="✅ Server Structure Updated",
+            description="Bonfire channels are now properly named and missing ones have been added.",
+            color=discord.Color.green()
+        )
+        if changes:
+            result_embed.add_field(name="Changes Made", value="\n".join(changes[:15]) + ("\n…" if len(changes) > 15 else ""), inline=False)
+        result_embed.add_field(name="ℹ️ Next Steps", value="The bot will now automatically post to the correct channels. No further action needed.", inline=False)
+        result_embed.set_footer(text=bonfire_footer("Modify Server"))
+
+        await interaction.edit_original_response(embed=result_embed)
 
 
 # ─────────────────────────────────────────────────────────
