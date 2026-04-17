@@ -664,17 +664,7 @@ async def init_db():
             started_at TIMESTAMP,
             ended_at   TIMESTAMP
         )""",
-               # weekly_vote
-        """CREATE TABLE IF NOT EXISTS weekly_vote (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            guild_id   INTEGER,
-            gaming     INTEGER DEFAULT 0,
-            movie      INTEGER DEFAULT 0,
-            meetup     INTEGER DEFAULT 0,
-            nothing    INTEGER DEFAULT 0,
-            voters     TEXT DEFAULT '[]',
-            posted_at  TIMESTAMP
-        )""",
+         
     ]
 
     async with aiosqlite.connect(DB_PATH) as db:
