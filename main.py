@@ -227,7 +227,7 @@ def bonfire_footer(feature: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────
-# [DATABASE]
+# [DATABASE] - FIXED VERSION
 # ─────────────────────────────────────────────────────────
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "storage", "bonfire.db")
@@ -235,402 +235,457 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
 async def init_db():
+    tables = [
+        # highlights
+        """CREATE TABLE IF NOT EXISTS highlights (
+            message_id INTEGER PRIMARY KEY,
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            author_id  INTEGER,
+            content    TEXT,
+            jump_url   TEXT,
+            posted_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # reminders
+        """CREATE TABLE IF NOT EXISTS reminders (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            user_id    INTEGER,
+            message    TEXT,
+            trigger_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # events
+        """CREATE TABLE IF NOT EXISTS events (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            channel_id  INTEGER,
+            creator_id  INTEGER,
+            title       TEXT,
+            description TEXT,
+            location    TEXT,
+            event_time  TIMESTAMP,
+            rsvp_yes    TEXT DEFAULT '[]',
+            rsvp_no     TEXT DEFAULT '[]',
+            rsvp_maybe  TEXT DEFAULT '[]',
+            message_id  INTEGER,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # lore
+        """CREATE TABLE IF NOT EXISTS lore (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            author_id  INTEGER,
+            target_id  INTEGER,
+            content    TEXT,
+            tags       TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # quotes
+        """CREATE TABLE IF NOT EXISTS quotes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            message_id INTEGER UNIQUE,
+            author_id  INTEGER,
+            content    TEXT,
+            jump_url   TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # beef
+        """CREATE TABLE IF NOT EXISTS beef (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id     INTEGER,
+            initiator_id INTEGER,
+            target_id    INTEGER,
+            reason       TEXT,
+            resolved     INTEGER DEFAULT 0,
+            winner_id    INTEGER,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # vibe_checks
+        """CREATE TABLE IF NOT EXISTS vibe_checks (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user_id    INTEGER,
+            score      INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # streaks
+        """CREATE TABLE IF NOT EXISTS streaks (
+            guild_id         INTEGER PRIMARY KEY,
+            current_streak   INTEGER DEFAULT 0,
+            last_active_date TEXT,
+            longest_streak   INTEGER DEFAULT 0
+        )""",
+        # activity_log
+        """CREATE TABLE IF NOT EXISTS activity_log (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id      INTEGER,
+            user_id       INTEGER,
+            activity_type TEXT,
+            detail        TEXT,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # lfg_lobbies
+        """CREATE TABLE IF NOT EXISTS lfg_lobbies (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            message_id INTEGER,
+            creator_id INTEGER,
+            game       TEXT,
+            size       INTEGER,
+            members    TEXT DEFAULT '[]',
+            expires_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # clutch_opt_in
+        """CREATE TABLE IF NOT EXISTS clutch_opt_in (
+            guild_id INTEGER,
+            user_id  INTEGER,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # clutch_cooldown
+        """CREATE TABLE IF NOT EXISTS clutch_cooldown (
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            last_ping  TIMESTAMP,
+            PRIMARY KEY (guild_id, channel_id)
+        )""",
+        # decide_log
+        """CREATE TABLE IF NOT EXISTS decide_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            options    TEXT,
+            result     TEXT,
+            decided_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # member_intros
+        """CREATE TABLE IF NOT EXISTS member_intros (
+            guild_id    INTEGER,
+            user_id     INTEGER PRIMARY KEY,
+            name        TEXT,
+            age         TEXT,
+            location    TEXT,
+            games       TEXT,
+            bio         TEXT,
+            card_msg_id INTEGER,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # vouches
+        """CREATE TABLE IF NOT EXISTS vouches (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            target_id   INTEGER,
+            voucher_id  INTEGER,
+            note        TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # story
+        """CREATE TABLE IF NOT EXISTS story (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            author_id  INTEGER,
+            line       TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # hot_takes
+        """CREATE TABLE IF NOT EXISTS hot_takes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user_id    INTEGER,
+            take       TEXT,
+            agrees     TEXT DEFAULT '[]',
+            disagrees  TEXT DEFAULT '[]',
+            message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # role_tracking
+        """CREATE TABLE IF NOT EXISTS role_tracking (
+            guild_id         INTEGER,
+            user_id          INTEGER,
+            message_count    INTEGER DEFAULT 0,
+            late_vc_count    INTEGER DEFAULT 0,
+            game_vc_minutes  INTEGER DEFAULT 0,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # weekly_challenge
+        """CREATE TABLE IF NOT EXISTS weekly_challenge (
+            guild_id     INTEGER PRIMARY KEY,
+            challenge    TEXT,
+            posted_at    TIMESTAMP,
+            completions  TEXT DEFAULT '[]'
+        )""",
+        # late_night_checkins
+        """CREATE TABLE IF NOT EXISTS late_night_checkins (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user_id    INTEGER,
+            mood       TEXT,
+            note       TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # meetups
+        """CREATE TABLE IF NOT EXISTS meetups (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            creator_id  INTEGER,
+            title       TEXT,
+            description TEXT,
+            location    TEXT,
+            meetup_time TIMESTAMP,
+            rsvp_yes    TEXT DEFAULT '[]',
+            rsvp_no     TEXT DEFAULT '[]',
+            rsvp_maybe  TEXT DEFAULT '[]',
+            message_id  INTEGER,
+            completed   INTEGER DEFAULT 0,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # meetup_memories
+        """CREATE TABLE IF NOT EXISTS meetup_memories (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            meetup_id  INTEGER,
+            user_id    INTEGER,
+            memory     TEXT,
+            rating     INTEGER,
+            photo_url  TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # icebreakers
+        """CREATE TABLE IF NOT EXISTS icebreakers (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            question   TEXT,
+            category   TEXT,
+            used       INTEGER DEFAULT 0,
+            posted_at  TIMESTAMP,
+            message_id INTEGER
+        )""",
+        # icebreaker_answers
+        """CREATE TABLE IF NOT EXISTS icebreaker_answers (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id      INTEGER,
+            user_id       INTEGER,
+            icebreaker_id INTEGER,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # vibe_pulse_optout
+        """CREATE TABLE IF NOT EXISTS vibe_pulse_optout (
+            guild_id INTEGER,
+            user_id  INTEGER,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # achievements
+        """CREATE TABLE IF NOT EXISTS achievements (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            user_id     INTEGER,
+            badge_key   TEXT,
+            unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(guild_id, user_id, badge_key)
+        )""",
+        # polls
+        """CREATE TABLE IF NOT EXISTS polls (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            creator_id INTEGER,
+            question   TEXT,
+            options    TEXT,
+            votes      TEXT DEFAULT '{}',
+            anonymous  INTEGER DEFAULT 0,
+            deadline   TIMESTAMP,
+            closed     INTEGER DEFAULT 0,
+            message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # pairchat_members
+        """CREATE TABLE IF NOT EXISTS pairchat_members (
+            guild_id INTEGER,
+            user_id  INTEGER,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # pairchat_history
+        """CREATE TABLE IF NOT EXISTS pairchat_history (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user1_id   INTEGER,
+            user2_id   INTEGER,
+            paired_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # memories
+        """CREATE TABLE IF NOT EXISTS memories (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user_id    INTEGER,
+            text       TEXT,
+            image_url  TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # checkin_log
+        """CREATE TABLE IF NOT EXISTS checkin_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            target_id  INTEGER,
+            sender_id  INTEGER,
+            anonymous  INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # vc_sessions
+        """CREATE TABLE IF NOT EXISTS vc_sessions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            members    TEXT,
+            started_at TIMESTAMP,
+            ended_at   TIMESTAMP,
+            duration_minutes INTEGER,
+            vibe_emoji TEXT,
+            message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # vc_active
+        """CREATE TABLE IF NOT EXISTS vc_active (
+            guild_id   INTEGER,
+            channel_id INTEGER,
+            members    TEXT DEFAULT '[]',
+            started_at TIMESTAMP,
+            PRIMARY KEY (guild_id, channel_id)
+        )""",
+        # drama
+        """CREATE TABLE IF NOT EXISTS drama (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            logger_id  INTEGER,
+            user1_id   INTEGER,
+            user2_id   INTEGER,
+            description TEXT,
+            beef_id    INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # bets
+        """CREATE TABLE IF NOT EXISTS bets (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            creator_id  INTEGER,
+            question    TEXT,
+            option1     TEXT,
+            option2     TEXT,
+            votes1      TEXT DEFAULT '[]',
+            votes2      TEXT DEFAULT '[]',
+            deadline    TIMESTAMP,
+            winner      INTEGER,
+            closed      INTEGER DEFAULT 0,
+            void        INTEGER DEFAULT 0,
+            message_id  INTEGER,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # server_temp
+        """CREATE TABLE IF NOT EXISTS server_temp (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            score      INTEGER,
+            label      TEXT,
+            recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # confessions
+        """CREATE TABLE IF NOT EXISTS confessions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user_hash  TEXT,
+            content    TEXT,
+            message_id INTEGER,
+            revealed   INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # availability
+        """CREATE TABLE IF NOT EXISTS availability (
+            guild_id   INTEGER,
+            user_id    INTEGER,
+            schedule   TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # hotseat
+        """CREATE TABLE IF NOT EXISTS hotseat (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            target_id   INTEGER,
+            starter_id  INTEGER,
+            questions   TEXT DEFAULT '[]',
+            active      INTEGER DEFAULT 1,
+            started_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ended_at    TIMESTAMP
+        )""",
+        # friendship_milestones
+        """CREATE TABLE IF NOT EXISTS friendship_milestones (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            user1_id   INTEGER,
+            user2_id   INTEGER,
+            milestone  TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # timeline_events
+        """CREATE TABLE IF NOT EXISTS timeline_events (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id    INTEGER,
+            category    TEXT,
+            description TEXT,
+            members     TEXT DEFAULT '[]',
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+        # notify_prefs
+        """CREATE TABLE IF NOT EXISTS notify_prefs (
+            guild_id  INTEGER,
+            user_id   INTEGER,
+            prefs     TEXT DEFAULT '{}',
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # alter_egos
+        """CREATE TABLE IF NOT EXISTS alter_egos (
+            guild_id    INTEGER,
+            user_id     INTEGER,
+            name        TEXT,
+            description TEXT,
+            vibe        TEXT,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # dead_chat_log
+        """CREATE TABLE IF NOT EXISTS dead_chat_log (
+            guild_id   INTEGER PRIMARY KEY,
+            last_post  TIMESTAMP
+        )""",
+        # seasons
+        """CREATE TABLE IF NOT EXISTS seasons (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            name       TEXT,
+            started_at TIMESTAMP,
+            ended_at   TIMESTAMP
+        )""",
+        # weekly_vote
+        """CREATE TABLE IF NOT EXISTS weekly_vote (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   INTEGER,
+            gaming     INTEGER DEFAULT 0,
+            movie      INTEGER DEFAULT 0,
+            meetup     INTEGER DEFAULT 0,
+            nothing    INTEGER DEFAULT 0,
+            voters     TEXT DEFAULT '[]',
+            posted_at  TIMESTAMP
+        )""",
+    ]
+
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.executescript("""
-            CREATE TABLE IF NOT EXISTS highlights (
-                message_id INTEGER PRIMARY KEY,
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                author_id  INTEGER,
-                content    TEXT,
-                jump_url   TEXT,
-                posted_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS reminders (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                user_id    INTEGER,
-                message    TEXT,
-                trigger_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS events (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                channel_id  INTEGER,
-                creator_id  INTEGER,
-                title       TEXT,
-                description TEXT,
-                location    TEXT,
-                event_time  TIMESTAMP,
-                rsvp_yes    TEXT DEFAULT '[]',
-                rsvp_no     TEXT DEFAULT '[]',
-                rsvp_maybe  TEXT DEFAULT '[]',
-                message_id  INTEGER,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS lore (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                author_id  INTEGER,
-                target_id  INTEGER,
-                content    TEXT,
-                tags       TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS quotes (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                message_id INTEGER UNIQUE,
-                author_id  INTEGER,
-                content    TEXT,
-                jump_url   TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS beef (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id     INTEGER,
-                initiator_id INTEGER,
-                target_id    INTEGER,
-                reason       TEXT,
-                resolved     INTEGER DEFAULT 0,
-                winner_id    INTEGER,
-                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS vibe_checks (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user_id    INTEGER,
-                score      INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS streaks (
-                guild_id         INTEGER PRIMARY KEY,
-                current_streak   INTEGER DEFAULT 0,
-                last_active_date TEXT,
-                longest_streak   INTEGER DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS activity_log (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id      INTEGER,
-                user_id       INTEGER,
-                activity_type TEXT,
-                detail        TEXT,
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS lfg_lobbies (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                message_id INTEGER,
-                creator_id INTEGER,
-                game       TEXT,
-                size       INTEGER,
-                members    TEXT DEFAULT '[]',
-                expires_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS clutch_opt_in (
-                guild_id INTEGER,
-                user_id  INTEGER,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS clutch_cooldown (
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                last_ping  TIMESTAMP,
-                PRIMARY KEY (guild_id, channel_id)
-            );
-            CREATE TABLE IF NOT EXISTS decide_log (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                options    TEXT,
-                result     TEXT,
-                decided_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS member_intros (
-                guild_id    INTEGER,
-                user_id     INTEGER PRIMARY KEY,
-                name        TEXT,
-                age         TEXT,
-                location    TEXT,
-                games       TEXT,
-                bio         TEXT,
-                card_msg_id INTEGER,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS vouches (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                target_id   INTEGER,
-                voucher_id  INTEGER,
-                note        TEXT,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS story (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                author_id  INTEGER,
-                line       TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS hot_takes (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user_id    INTEGER,
-                take       TEXT,
-                agrees     TEXT DEFAULT '[]',
-                disagrees  TEXT DEFAULT '[]',
-                message_id INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS role_tracking (
-                guild_id         INTEGER,
-                user_id          INTEGER,
-                message_count    INTEGER DEFAULT 0,
-                late_vc_count    INTEGER DEFAULT 0,
-                game_vc_minutes  INTEGER DEFAULT 0,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS weekly_challenge (
-                guild_id     INTEGER PRIMARY KEY,
-                challenge    TEXT,
-                posted_at    TIMESTAMP,
-                completions  TEXT DEFAULT '[]'
-            );
-            CREATE TABLE IF NOT EXISTS late_night_checkins (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user_id    INTEGER,
-                mood       TEXT,
-                note       TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS meetups (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                creator_id  INTEGER,
-                title       TEXT,
-                description TEXT,
-                location    TEXT,
-                meetup_time TIMESTAMP,
-                rsvp_yes    TEXT DEFAULT '[]',
-                rsvp_no     TEXT DEFAULT '[]',
-                rsvp_maybe  TEXT DEFAULT '[]',
-                message_id  INTEGER,
-                completed   INTEGER DEFAULT 0,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS meetup_memories (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                meetup_id  INTEGER,
-                user_id    INTEGER,
-                memory     TEXT,
-                rating     INTEGER,
-                photo_url  TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS icebreakers (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                question   TEXT,
-                category   TEXT,
-                used       INTEGER DEFAULT 0,
-                posted_at  TIMESTAMP,
-                message_id INTEGER
-            );
-            CREATE TABLE IF NOT EXISTS icebreaker_answers (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id      INTEGER,
-                user_id       INTEGER,
-                icebreaker_id INTEGER,
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS vibe_pulse_optout (
-                guild_id INTEGER,
-                user_id  INTEGER,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS achievements (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                user_id     INTEGER,
-                badge_key   TEXT,
-                unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(guild_id, user_id, badge_key)
-            );
-            CREATE TABLE IF NOT EXISTS polls (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                creator_id INTEGER,
-                question   TEXT,
-                options    TEXT,
-                votes      TEXT DEFAULT '{}',
-                anonymous  INTEGER DEFAULT 0,
-                deadline   TIMESTAMP,
-                closed     INTEGER DEFAULT 0,
-                message_id INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS pairchat_members (
-                guild_id INTEGER,
-                user_id  INTEGER,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS pairchat_history (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user1_id   INTEGER,
-                user2_id   INTEGER,
-                paired_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS memories (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user_id    INTEGER,
-                text       TEXT,
-                image_url  TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS checkin_log (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                target_id  INTEGER,
-                sender_id  INTEGER,
-                anonymous  INTEGER DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS vc_sessions (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                members    TEXT,
-                started_at TIMESTAMP,
-                ended_at   TIMESTAMP,
-                duration_minutes INTEGER,
-                vibe_emoji TEXT,
-                message_id INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS vc_active (
-                guild_id   INTEGER,
-                channel_id INTEGER,
-                members    TEXT DEFAULT '[]',
-                started_at TIMESTAMP,
-                PRIMARY KEY (guild_id, channel_id)
-            );
-            CREATE TABLE IF NOT EXISTS drama (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                logger_id  INTEGER,
-                user1_id   INTEGER,
-                user2_id   INTEGER,
-                description TEXT,
-                beef_id    INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS bets (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                creator_id  INTEGER,
-                question    TEXT,
-                option1     TEXT,
-                option2     TEXT,
-                votes1      TEXT DEFAULT '[]',
-                votes2      TEXT DEFAULT '[]',
-                deadline    TIMESTAMP,
-                winner      INTEGER,
-                closed      INTEGER DEFAULT 0,
-                void        INTEGER DEFAULT 0,
-                message_id  INTEGER,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS server_temp (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                score      INTEGER,
-                label      TEXT,
-                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS confessions (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user_hash  TEXT,
-                content    TEXT,
-                message_id INTEGER,
-                revealed   INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS availability (
-                guild_id   INTEGER,
-                user_id    INTEGER,
-                schedule   TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS hotseat (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                target_id   INTEGER,
-                starter_id  INTEGER,
-                questions   TEXT DEFAULT '[]',
-                active      INTEGER DEFAULT 1,
-                started_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ended_at    TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS friendship_milestones (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                user1_id   INTEGER,
-                user2_id   INTEGER,
-                milestone  TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS timeline_events (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id    INTEGER,
-                category    TEXT,
-                description TEXT,
-                members     TEXT DEFAULT '[]',
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS notify_prefs (
-                guild_id  INTEGER,
-                user_id   INTEGER,
-                prefs     TEXT DEFAULT '{}',
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS alter_egos (
-                guild_id    INTEGER,
-                user_id     INTEGER,
-                name        TEXT,
-                description TEXT,
-                vibe        TEXT,
-                PRIMARY KEY (guild_id, user_id)
-            );
-            CREATE TABLE IF NOT EXISTS dead_chat_log (
-                guild_id   INTEGER PRIMARY KEY,
-                last_post  TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS seasons (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                name       TEXT,
-                started_at TIMESTAMP,
-                ended_at   TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS weekly_vote (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id   INTEGER,
-                gaming     INTEGER DEFAULT 0,
-                movie      INTEGER DEFAULT 0,
-                meetup     INTEGER DEFAULT 0,
-                nothing    INTEGER DEFAULT 0,
-                voters     TEXT DEFAULT '[]',
-                posted_at  TIMESTAMP
-            );
-        """)
+        # Execute each table creation individually to isolate errors
+        for stmt in tables:
+            try:
+                await db.execute(stmt)
+            except Exception as e:
+                print(f"[Bonfire] Error creating table: {e}")
+                print(f"Statement: {stmt[:200]}...")
+                raise
         await db.commit()
 
         # Seed icebreaker questions
@@ -646,6 +701,13 @@ async def init_db():
 
 def get_db():
     return aiosqlite.connect(DB_PATH)
+
+
+# ─────────────────────────────────────────────────────────
+# [HELPERS]
+# ─────────────────────────────────────────────────────────
+# (All helpers remain unchanged)
+# ... [The rest of the file is exactly the same as provided]
 
 
 # ─────────────────────────────────────────────────────────
