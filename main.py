@@ -664,7 +664,7 @@ async def init_db():
             started_at TIMESTAMP,
             ended_at   TIMESTAMP
         )""",
-        # weekly_vote
+               # weekly_vote
         """CREATE TABLE IF NOT EXISTS weekly_vote (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_id   INTEGER,
