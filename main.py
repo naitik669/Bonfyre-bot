@@ -234,7 +234,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "storage", "bonfire.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
-async def init_db():
+
     async with aiosqlite.connect(DB_PATH) as db:
         
         await db.commit()
